@@ -1,49 +1,54 @@
 #!/usr/bin/python3
-"""Function to count words in all hot posts of a given Reddit subreddit."""
-import requests
+""" Functions to adcquire info from API Reddit"""
+from requests import get
 
 
-def count_words(subreddit, word_list, count_dict={}, after=None):
-    """Prints counts of given words found in hot posts of a given subreddit.
-    Args:
-        subreddit (str): The subreddit to search.
-        word_list (list): The list of words to search for in post titles.
-        instances (obj): Key/value pairs of words/counts.
-        after (str): The parameter for the next page of the API results.
-        count (int): The parameter of results matched thus far.
+def count_words(subreddit, word_list):
+    """Count the titles found with wordlist in subreddit"""
+    my_list = recurse(subreddit)
+    my_dict = {}
+    count = 0
+
+    if my_list is not None:
+        for word in word_list:
+            my_dict[word] = 0
+
+        for title in my_list:
+            title_split = title.split(" ")
+
+            for iter in title_split:
+                for iter_split in word_list:
+                    if iter.lower() == iter_split.lower():
+                        count = 1
+                        my_dict[iter_split] += 1
+        if count == 0:
+            return
+        for key, val in sorted(my_dict.items(),  key=lambda x: x[1],
+                               reverse=True):
+            if val != 0:
+                print("{}: {}".format(key, val))
+    else:
+        return
+
+
+def recurse(subreddit, hot_list=[], after=""):
     """
-    params = {"limit": 50}
-    if after:
-        params["after"] = after
-    req = requests.get(
-        "https://www.reddit.com/r/{}/hot.json".format(subreddit),
-        headers={
-            "User-Agent": "samuelmwikaa"},
-        params=params,
-        allow_redirects=False)
-    if req.status_code == 200:
-        posts = req.json().get("data").get("children")
-        for post in posts:
-            title = post.get("data").get("title")
-            word_list = [word.lower() for word in word_list]
-            for word in word_list:
-                w_count = title.split().count(word)
-                if count_dict.get(word):
-                    count_dict[word] += w_count
-                else:
-                    count_dict[word] = w_count
-        if req.json().get("data").get("after"):
-            count_words(
-                subreddit,
-                word_list=word_list,
-                count_dict=count_dict,
-                after=req.json().get("data").get("after"))
-        else:
-            for pair in sorted(
-                    count_dict.items(),
-                    key=lambda kv: (
-                        kv[1],
-                        kv[0]),
-                    reverse=True):
-                if pair[1]:
-                    print("{}: {}".format(pair[0].strip(), pair[1]))
+        Returns a list containing the titles of all hot articles
+        for a given subreddit.
+        Returns None if subreddit doesn't exist.
+    """
+    parameters = {"after": after}
+    header = {"User-Agent": "samuelmwikaa"}
+    result = get('https://www.reddit.com/r/{}/hot.json'.format(subreddit),
+                 headers=header, allow_redirects=False, params=parameters)
+    if result.status_code != 200:
+        return None
+
+    after = result.json().get('data').get('after')
+
+    for item in result.json().get('data').get('children'):
+        hot_list.append(item.get('data').get('title'))
+
+    if after is None:
+        return hot_list
+    return recurse(subreddit, hot_list, after)
